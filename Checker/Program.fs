@@ -70,7 +70,7 @@ let rec timer sec = async {
   do! Async.Sleep 1000
   if sec < 0 then return ()
   else
-    System.Console.Write (sprintf "\x1b[2K\r%d seconds left." sec)
+    System.Console.Write (sprintf "\r\t%d seconds left." sec)
     return! timer (sec - 1)
 }
 
@@ -91,7 +91,7 @@ let randomStr n =
 [<EntryPoint>]
 let main argv =
   use cts = new CancellationTokenSource ()
-  let startTime = System.DateTime.Now.ToString ("yyyy-MM-ddTH:mm:ss")
+  let startTime = System.DateTime.Now.ToString ("yyyy.MM.dd-H.mm.ss")
   let sec = System.Convert.ToInt32 (argv.[0])
   let myip = getMyIP ()
   let myport = 8080
