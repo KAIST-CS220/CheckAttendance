@@ -83,7 +83,7 @@ let finalize startTime =
       System.IO.File.WriteAllText (filename, s))
 
 let randomStr n =
-  let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWUXYZ0123456789"
+  let chars = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWUXYZ2345679"
   let len = String.length chars
   let r = new System.Random ()
   System.String (Array.init n (fun _ -> chars.[r.Next(len)]))
