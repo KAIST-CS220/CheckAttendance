@@ -7,9 +7,9 @@ open Suave.Operators
 open Suave.Successful
 open Suave.RequestErrors
 open Suave.ServerErrors
-open System.Threading
 open System.Net
 open System.Net.Sockets
+open System.Threading
 open System.Collections.Concurrent
 
 let parseLine (line: string) =
@@ -29,6 +29,8 @@ let index mainpath = "\
 <html>
   <body>
     <h1>Student Attendance Checking System.</h1>
+    <p>By clicking the submit button below, I hereby certify that the entered
+    information is absolutely mine.</p>
     <form method=\"post\" action=\"" + mainpath + "/submit\">
       Student ID: <input type=\"text\" name=\"sid\"/> <br/>
       Last Name: <input type=\"text\" name=\"lastname\"/> <br/>
@@ -37,14 +39,17 @@ let index mainpath = "\
   </body>
 </html>"
 
+let addStudent sid (lastname: string) =
+  match Map.tryFind sid students with
+  | Some n when n = (lastname.ToLower ()) ->
+    attendanceQueue.Enqueue (sid); true
+  | _ -> false
+
 let submit (req: HttpRequest) =
   match req.formData "sid", req.formData "lastname" with
   | Choice1Of2 sid, Choice1Of2 lastname ->
-    match Map.tryFind sid students with
-    | Some n when n = (lastname.ToLower ()) ->
-      attendanceQueue.Enqueue (sid) |> ignore
-      OK "done"
-    | _ -> INTERNAL_ERROR "Invalid request."
+    if addStudent sid lastname then OK "succeed"
+    else INTERNAL_ERROR "Invalid request."
   | _ -> INTERNAL_ERROR "Invalid request."
 
 let app mainpath =
@@ -66,17 +71,26 @@ let getMyIP () =
   let endPoint = socket.LocalEndPoint :?> IPEndPoint
   endPoint.Address.ToString ()
 
-let rec timer sec = async {
-  do! Async.Sleep 1000
-  if sec < 0 then return ()
-  else
-    System.Console.Write (sprintf "\r\t%d seconds left." sec)
-    return! timer (sec - 1)
-}
-
-let finalize startTime =
+let getAttendedStudents () =
   attendanceQueue
   |> Seq.fold (fun set sid -> Set.add sid set) Set.empty
+
+let rec prompt mainpath (cts: CancellationTokenSource) =
+  System.Console.Write ("{0} ({1}) > ",
+    (if cts.IsCancellationRequested then "(no connection)" else mainpath),
+    getAttendedStudents () |> Set.count)
+  match System.Console.ReadLine () |> String.split ' ' with
+  | "stop" :: _ -> cts.Cancel (); prompt mainpath cts
+  | "quit" :: _
+  | "q" :: _ -> ()
+  | "add" :: sid :: lastname :: _ ->
+    if addStudent sid lastname then System.Console.WriteLine ("Succeed.")
+    else System.Console.WriteLine ("Failed: add <sid> <lastname>")
+    prompt mainpath cts
+  | _ -> prompt mainpath cts
+
+let finalize startTime =
+  getAttendedStudents ()
   |> Set.fold (fun acc sid -> acc + sid + "\n") ""
   |> (fun s ->
       let filename = startTime + ".attendance"
@@ -89,10 +103,9 @@ let randomStr n =
   System.String (Array.init n (fun _ -> chars.[r.Next(len)]))
 
 [<EntryPoint>]
-let main argv =
+let main _ =
   use cts = new CancellationTokenSource ()
   let startTime = System.DateTime.Now.ToString ("yyyy.MM.dd-H.mm.ss")
-  let sec = System.Convert.ToInt32 (argv.[0])
   let myip = getMyIP ()
   let myport = 8080
   let cfg = getConfig myip myport cts.Token
@@ -101,7 +114,7 @@ let main argv =
   Async.Start (server, cts.Token)
   Thread.Sleep (1000)
   printfn "\n\nNow connect to http://%s:%d%s\n\n" myip myport mainpath
-  Async.RunSynchronously (timer sec)
+  prompt mainpath cts
   cts.Cancel ()
   System.Console.WriteLine ()
   finalize startTime
