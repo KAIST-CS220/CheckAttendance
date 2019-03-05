@@ -5,7 +5,7 @@ A simple class attendance checker written in F#.
 # How Does It Work?
 
 In CS220 @ KAIST, we check the attendance of every student using this
-program. It works as follows.
+program. It works as follows!
 
 1. First, the course instructor will launch this program at the beginning of a
    class. The program assumes the existence of a CSV file that lists all the
